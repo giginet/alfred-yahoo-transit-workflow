@@ -14,15 +14,16 @@ from bs4 import BeautifulSoup
 
 
 class TransitInformation(object):
-    def __init__(self, time, transfer, fare, url):
+    def __init__(self, time, duration, transfer, fare, url):
         self.time = time
+        self.duration = duration
         self.transfer = transfer
         self.fare = fare
         self.url = url
 
     @property
     def title(self):
-        return self.time
+        return u'%s %s' % (self.time, self.duration)
 
     @property
     def description(self):
@@ -31,7 +32,7 @@ class TransitInformation(object):
 
 class YahooTransitAlfredWorkflow(object):
     YAHOO_TRANSIT_SEARCH_URL = 'http://transit.yahoo.co.jp/search/result?flatlon=&from=%s&tlatlon=&to=%s'
-    ICON_URL = '28BE64C3-EC42-499C-B764-246CED54E44B.png'
+    ICON_URL = 'icon.png'
 
     def __init__(self):
         self.wf = Workflow()
@@ -76,11 +77,14 @@ class YahooTransitAlfredWorkflow(object):
         url = '%s#%s' % (base_url, id)
 
         summary = node.select('.routeSummary')[0]
-        time = summary.select('li.time')[0].getText()
+        time = summary.select('li.time span')[0].getText()
+        duration = summary.select('li.time')[0].getText()
+        duration = duration.replace(time, '')
         transfer = summary.select('li.transfer')[0].getText()
-        fare = summary.select('li.fare .mark')[0].getText()
+        fare = summary.select('li.fare')[0].getText()
+        humanized_fare = fare.replace('[priic]', '')
 
-        info = TransitInformation(time, transfer, fare, url)
+        info = TransitInformation(time, duration, transfer, humanized_fare, url)
         return info
 
 if __name__ == '__main__':
