@@ -4,62 +4,84 @@ import sys
 import os
 import urllib
 from workflow import Workflow
+from workflow import web
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'Scrapy'))
-print sys.path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'bs4'))
 
 log = None
 
+from bs4 import BeautifulSoup
 
-import scrapy
 
-class TransitSpider(scrapy.Spider):
-    YAHOO_TRANSIT_SEARCH_URL = 'http://transit.yahoo.co.jp/search/result?flatlon=&from=%s&tlatlon=&to=%s'
-
-    def __init__(self, src, dst):
-        url = self.YAHOO_TRANSIT_SEARCH_URL % (urllib.urlencode(src), urllib.urlencode(dst))
+class TransitInformation(object):
+    def __init__(self, time, transfer, fare, url):
+        self.time = time
+        self.transfer = transfer
+        self.fare = fare
         self.url = url
 
-    def start_requests(self):
-        yield scrapy.Request(self.url, self.parse)
+    @property
+    def title(self):
+        return self.time
 
-    def parse(self, response):
-        for href in response.css('.question-summary h3 a::attr(href)'):
-            full_url = response.urljoin(href.extract())
-            yield scrapy.Request(full_url, callback=self.parse_question)
+    @property
+    def description(self):
+        return u'%s %s' % (self.transfer, self.fare)
 
-    def parse_question(self, response):
-        yield {
-            'title': response.css('h1 a::text').extract()[0],
-            'votes': response.css('.question .vote-count-post::text').extract()[0],
-            'body': response.css('.question .post-text').extract()[0],
-            'tags': response.css('.question .post-tag::text').extract(),
-            'link': response.url,
-        }
 
 class YahooTransitAlfredWorkflow(object):
+    YAHOO_TRANSIT_SEARCH_URL = 'http://transit.yahoo.co.jp/search/result?flatlon=&from=%s&tlatlon=&to=%s'
+    ICON_URL = '28BE64C3-EC42-499C-B764-246CED54E44B.png'
+
     def __init__(self):
         self.wf = Workflow()
+        self.log = self.wf.logger
 
     def run(self):
-        log = self.wf.logger
         sys.exit(self.wf.run(self.main))
 
     def main(self, wf):
+        self.log.debug('start')
         args = wf.args
 
         queries = args[0].split()
 
         if len(queries) > 1:
-            src, dst = queries[0:2]
-            wf.add_item(u'Item title', src)
-            wf.add_item(u'Item title', dst)
+            self.src, self.dst = queries[0:2]
+            self.src = urllib.quote(self.src.encode('utf-8'))
+            self.dst = urllib.quote(self.dst.encode('utf-8'))
+
+            informations = self._fetch_transit_informations()
+            for info in informations:
+                wf.add_item(info.title, info.description, arg=info.url, valid=True, icon=self.ICON_URL)
+        else:
+            wf.add_item('transit <origin> <destination>')
 
         wf.send_feedback()
 
-    def _fetch_transit_information(self, src, dst):
-        spider = TransitSpider(src, dst)
+    def _get_url(self):
+        return self.YAHOO_TRANSIT_SEARCH_URL % (self.src, self.dst)
 
+    def _fetch_transit_informations(self):
+        url = self._get_url()
+        response = web.get(url)
+        self.redirect_url = response.url
+        soup = BeautifulSoup(response.content)
+        routes = soup.select('[id^=route]')
+        return [self._parse_information_from_node(route) for route in routes]
+
+    def _parse_information_from_node(self, node):
+        id = node['id']
+        base_url = self._get_url()
+        url = '%s#%s' % (base_url, id)
+
+        summary = node.select('.routeSummary')[0]
+        time = summary.select('li.time')[0].getText()
+        transfer = summary.select('li.transfer')[0].getText()
+        fare = summary.select('li.fare .mark')[0].getText()
+
+        info = TransitInformation(time, transfer, fare, url)
+        return info
 
 if __name__ == '__main__':
     wf = YahooTransitAlfredWorkflow()
