@@ -23,11 +23,11 @@
 	<key>createdby</key>
 	<string>giginet</string>
 	<key>description</key>
-	<string>Search transport route via Yahoo Japan</string>
+	<string>Search transport routes via Yahoo Japan</string>
 	<key>disabled</key>
 	<false/>
 	<key>name</key>
-	<string>Yahoo Transporter</string>
+	<string>Yahoo Transit</string>
 	<key>objects</key>
 	<array>
 		<dict>
@@ -99,6 +99,6 @@
 		</dict>
 	</dict>
 	<key>webaddress</key>
-	<string></string>
+	<string>https://github.com/giginet/alfred-yahoo-transit-workflow</string>
 </dict>
 </plist>
