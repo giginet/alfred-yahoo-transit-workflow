@@ -45,6 +45,8 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+*.dist-info/*
+
 
 bs4
 workflow

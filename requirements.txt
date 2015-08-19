@@ -1,2 +1,2 @@
 Alfred-Workflow
-scrapy
+beautifulsoup4
